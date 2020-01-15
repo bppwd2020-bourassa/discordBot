@@ -1,91 +1,58 @@
-const Discord = require("discord.js");
-const bot = new Discord.Client();
+const { Client, Collection } = require("discord.js");
+const { config } = require("dotenv");
 
-
-bot.on('ready', () => {
-  bot.user.setGame('Type !mc for commands')
+const client = new Client({
+    disableEveryone: true
 })
 
-bot.on('message', (message) => {
-  if(message.content.substring(0,3) == "!mc"){
-      if(message.content.includes("dropbox")){
-        message.reply('The Dropbox link for the mods is ');
-      }else if(message.content.includes("ip")){
-        message.reply('The ip to the server is **24.183.189.1**')
-      }
-      else if (message.content.includes("clear")) {
-        if (message.member.hasPermission("bot developer")) {
-          async function clear() {
-            msg.delete();
-            const fetched = await msg.channel.fetchMessages({limit: 99});
-            msg.channel.bulkDelete(fetched);
-          }
-        }
-      }
-    }
+// Collections
+client.commands = new Collection();
+client.aliases = new Collection();
+
+config({
+    path: __dirname + "/.env"
 });
 
-bot.login('NjYyNjg2NTc4MTA3MzUxMTIw.Xg9oVQ.1QLOyq5wbyTOGxra_rCnPy0y3P8');
+// Run the command loader
+["command"].forEach(handler => {
+    require(`./handlers/${handler}`)(client);
+});
 
+client.on("ready", () => {
+    console.log(`Hi, ${client.user.username} is now online!`);
 
-/*
-///// Testing /////
-const Discord = require("discord.js");
-const bot = new Discord.Client();
-
-
-bot.on('ready', () => {
-  bot.user.setGame('Type !mc for commands')
+    client.user.setPresence({
+        status: "online",
+        game: {
+            name: "me getting developed",
+            type: "WATCHING"
+        }
+    }); 
 })
 
-bot.on('message', (message) => {
-  if(message.content.substring(0,3) == "!mc"){
-      if(message.content.includes("dropbox")){
-        message.reply('The Dropbox link for the mods is https://www.dropbox.com/sh/t47pr8pms901l40/AACDmTKXS-YOPduUJB7rC5dpa?dl=0');
-      }else if(message.content.includes("ip")){
-        message.reply('The ip to the server is **24.183.189.1**')
-      }
-      else if (message.content.includes("clear")) {
-        if (message.member.hasPermission("MANAGE_MESSAGES")) {
-            message.channel.fetchMessages()
-               .then(function(list){
-                    message.channel.bulkDelete(list);
-                }, function(err){message.channel.send("ERROR: ERROR CLEARING CHANNEL.")})
-        }
-      }else if(message.content.includes("start server")){
-        const { spawn } = require('child_process');
-        const bat = spawn('cmd.exe', ['/c', 'Server.bat']);
-        message.reply('Server starting; will be up soon.');
-        bat.stdout.on('data', (data) => {
-          console.log(data.toString());
-        });
+client.on("message", async message => {
+    const prefix = "_";
 
-        bat.stderr.on('data', (data) => {
-          console.log(data.toString());
-        });
+    if (message.author.bot) return;
+    if (!message.guild) return;
+    if (!message.content.startsWith(prefix)) return;
 
-        bat.on('exit', (code) => {
-          console.log(`Child exited with code ${code}`);
-          message.reply('Server failed to start; please retry');
-        });
-      }else if (message.content.includes("shutdown server") && (message.member.roles.find(r => r.name === "Owner") || message.member.roles.find(r => r.name === "bot developer"))) {
-        const { spawn } = require('child_process');
-        const bat = spawn('cmd.exe', ['/c', 'Stop.bat']);
-        message.reply('Server starting; will be up soon.');
-        bat.stdout.on('data', (data) => {
-          console.log(data.toString());
-        });
+    // If message.member is uncached, cache it.
+    if (!message.member) message.member = await message.guild.fetchMember(message);
 
-        bat.stderr.on('data', (data) => {
-          console.log(data.toString());
-        });
+    const args = message.content.slice(prefix.length).trim().split(/ +/g);
+    const cmd = args.shift().toLowerCase();
+    
+    if (cmd.length === 0) return;
+    
+    // Get the command
+    let command = client.commands.get(cmd);
+    // If none is found, try to find it by alias
+    if (!command) command = client.commands.get(client.aliases.get(cmd));
 
-        bat.on('exit', (code) => {
-          console.log(`Child exited with code ${code}`);
-          message.reply('Server failed to start; please retry');
-        });
-      }
-    }
+    // If a command is finally found, run the command
+    if (command) 
+        command.run(client, message, args);
 });
-bot.login('NjYyNjg2NTc4MTA3MzUxMTIw.Xg9oVQ.1QLOyq5wbyTOGxra_rCnPy0y3P8');
-*/
+
+client.login(process.env.TOKEN);
